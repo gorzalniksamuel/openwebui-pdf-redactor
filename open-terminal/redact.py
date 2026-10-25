@@ -58,7 +58,8 @@ BIG_IMAGE = 0.5  # an image covering this share of the page is a scan/page image
 OCR_TIMEOUT = 60
 # (angle, threshold, mirrored), most productive first; a region stops at its first variant that reveals a target.
 # A mirrored copy (ticket "Zangenabdruck") sits in the same image as the upright one, which removes the image.
-SCAN_VARIANTS = ((0, None, False), (10, 235, False), (0, 200, False), (-10, None, False), (0, None, True))
+SCAN_VARIANTS = ((0, None, False), (0, 230, False), (10, 235, False), (-10, None, False), (0, 200, False),
+                 (0, None, True))
 SCAN_DPI = 300
 SCAN_WORKERS = max(2, min(4, os.cpu_count() or 2))
 EXTRACT_MAX_CHARS = 9000  # extract output budget (the 9b model has a 16k-token context incl. instructions)
@@ -532,7 +533,10 @@ def is_blank(page: pymupdf.Page, r: pymupdf.Rect) -> bool:
 
 
 def value_regex(v: str) -> re.Pattern:
-    """A matched label/regex/builtin value as a literal, tolerant to spacing (OCR splits long numbers)."""
+    """A matched label/regex/builtin value as a literal, tolerant to spacing (OCR splits long numbers). A value that
+    is a name (2-3 plain words) is searched like a --terms name (also inverted: "Musterfrau, Erika")."""
+    if re.fullmatch(r"[^\W\d_]+(?:[-'][^\W\d_]+)*(?: [^\W\d_]+(?:[-'][^\W\d_]+)*){1,2}", v.strip()):
+        return term_regex(v.strip())
     chars = [re.escape(c) for c in re.sub(r"\s+", "", v)]
     return re.compile(r"(?<![\w])" + r"\s*".join(chars) + r"(?![\w])", re.IGNORECASE)
 
@@ -621,10 +625,13 @@ def label_regex(label: str) -> re.Pattern:
     not_label = r"(?![^\s]*:)"
     end = r"(?![\w\-/.])"
     name = rf"{name_word}{not_label}(?:[ ]+(?:(?-i:von|van|de|zu|der|den)|{name_word}){not_label}){{0,2}}{end}"
+    # an address line: street (+ more words) + house number [, postcode city]
+    street = (rf"{name_word}(?:[ ]+{name_word}){{0,2}}[ ]+\d{{1,4}}(?-i:[a-z])?(?:-\d{{1,4}})?"
+              rf"(?:,?[ ]+\d{{4,5}}[ ]+{name_word}(?:[ ]+{name_word})?)?{end}")
     code = rf"[^\W_][^\s]*?(?:[ ](?-i:[0-9A-Z]{{1,6}}){not_label}(?=[\s,;]|$))*(?=[\s,;]|$)"
     titles = r"(?:(?:Dr|Prof|med|dent|Dipl|Ing|PD|Herr|Herrn|Frau|Mr|Mrs|Ms)\.?(?:-\w+\.?)?[ \t]+)*"
     return re.compile(r"(?<![\w])" + body + r"\w*[ \t]*[.:#]*[ \t]*(?:(?:Nr|No)\b[ \t]*[.:#]*[ \t]*)?"
-                      + titles + rf"(?P<v>{name}|{code})", re.IGNORECASE)
+                      + titles + rf"(?P<v>{street}|{name}|{code})", re.IGNORECASE)
 
 
 def match_span(m: re.Match) -> tuple[int, int]:

@@ -643,3 +643,24 @@ def test_retention_sweep_only_old_pdfs_and_sidecars(tmp_path):
     os.utime(home / "old2.pdf", (old, old))
     subprocess.run([*REDACT, "builtins"], capture_output=True, text=True, env=env, check=True)
     assert (home / "old2.pdf").exists()
+
+
+def test_label_takes_address_and_names_and_medical_builtins(tmp_path):
+    doc = pymupdf.open()
+    page = doc.new_page()
+    for k, t in enumerate(["Patient: Erika Musterfrau, geb. 14.02.1961", "Anschrift: Birkenweg 3, 40489 Düsseldorf",
+                           "Versichertennummer: A123456789", "Diagnose: Akuter NSTEMI (I21.4)",
+                           "Aufnahme am 02.03.2026 durch Dr. med. Hannes Kröger", "Klinik: Parkstraße 4, 40210 Düsseldorf"]):
+        page.insert_text((50, 80 + k * 18), t, fontsize=11)
+    page.insert_text((50, 800), "Musterfrau, Erika * 14.02.1961", fontsize=8)
+    pdf = tmp_path / "med.pdf"
+    doc.save(pdf)
+    out = tmp_path / "med_redacted.pdf"
+    r = run("apply", pdf, "--mode", "text", "--label", "Patient", "Anschrift", "--builtin", "BIRTHDATE",
+            "HEALTH_INSURANCE_DE", "ICD10", "-o", out)
+    assert r.returncode == 0 and "VERIFY PASSED" in r.stdout, r.stdout
+    t = page_text(out)
+    for gone in ("Erika Musterfrau", "Musterfrau, Erika", "14.02.1961", "Birkenweg", "40489", "A123456789", "I21.4"):
+        assert gone not in t, gone
+    for kept in ("Akuter NSTEMI", "02.03.2026", "Hannes Kröger", "Parkstraße 4, 40210 Düsseldorf", "Anschrift:"):
+        assert kept in t, kept
