@@ -5,7 +5,7 @@ decompressed bytes, hex strings, metadata, every embedded image (OCR) and the re
 high-contrast and mirrored) and checks that the words that must stay are still readable.
 
   docker build -t redact-checker -f testing/Dockerfile.checker testing
-  python3 testing/run_matrix.py [--redact "python3 open-terminal/redact.py"] [case ...]
+  python3 testing/run_matrix.py [--redact "python3 open-terminal/redact.py"] [--python python3] [case ...]
 
 The redact command needs pymupdf, gs, qpdf, tesseract (e.g. run this inside the Open Terminal, or pass
 --redact "docker run --rm -v $PWD/testing/work:/w -w /w --entrypoint redact pdf-redactor-terminal").
@@ -27,6 +27,9 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--redact", default=f"python3 {os.path.join(HERE, '..', 'open-terminal', 'redact.py')}")
 ap.add_argument("--checker", default="docker run --rm --network none -v {work}:/w:ro -v {here}:/t:ro redact-checker "
                                      "python3 /t/check.py")
+ap.add_argument("--python", default="python3",
+                help="python with pymupdf for the document generator, e.g. \"docker run --rm -v {work}:{work} "
+                     "--entrypoint python3 pdf-redactor-terminal\"")
 ap.add_argument("cases", nargs="*")
 a = ap.parse_args()
 
@@ -36,8 +39,13 @@ for d in ("fx", "syn", "out"):
 for f in os.listdir(os.path.join(HERE, "fixtures")):
     shutil.copy(os.path.join(HERE, "fixtures", f), os.path.join(work, "fx", f))
 redact = shlex.split(a.redact)
-subprocess.run(["python3", os.path.join(HERE, "gen_synth.py"), os.path.join(work, "syn")], check=False)
-docker_redact = "docker" in redact[0]
+gen_py = shlex.split(a.python.format(work=work, here=HERE))
+if "docker" in gen_py:
+    shutil.copy(os.path.join(HERE, "gen_synth.py"), os.path.join(work, "gen_synth.py"))
+    subprocess.run([*gen_py, os.path.join(work, "gen_synth.py"), os.path.join(work, "syn")], check=False)
+else:
+    subprocess.run([*gen_py, os.path.join(HERE, "gen_synth.py"), os.path.join(work, "syn")], check=False)
+docker_redact = "docker" in redact
 checker = shlex.split(a.checker.format(work=work, here=HERE))
 results, failed = [], 0
 for cid, src, args, secrets, keep in CASES:

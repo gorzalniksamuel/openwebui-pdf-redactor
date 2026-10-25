@@ -20,7 +20,12 @@ Three levels:
    and it checks that the words that must stay are still readable (no over-redaction).
    ```bash
    docker build -t redact-checker -f testing/Dockerfile.checker testing
-   python3 testing/run_matrix.py
+   python3 testing/run_matrix.py                    # redact + generator with the local python (pymupdf etc.)
+   # or everything in containers (hardened terminal image from open-terminal/docker/):
+   W=$PWD/testing/work; mkdir -p $W && chmod 777 $W
+   python3 testing/run_matrix.py \
+     --python "docker run --rm -u 1000:1000 -v $W:$W --entrypoint python3 pdf-redactor-terminal" \
+     --redact "docker run --rm -u 1000:1000 -v $W:/w -w /w --entrypoint redact pdf-redactor-terminal"
    ```
    Cases (`testing/cases.py`): letters, invoices, forms, incremental updates with an old revision, mixed scan/digital,
    rotated pages, owner-encrypted, scans with OCR layer, damaged xref, plain and rotated scans, hidden places
