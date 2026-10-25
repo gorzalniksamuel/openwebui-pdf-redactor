@@ -1,0 +1,51 @@
+[
+  {
+    "id": "pdf-redactor",
+    "base_model_id": "qwen3.5:9b",
+    "name": "PDF Redactor",
+    "meta": {
+      "profile_image_url": "/static/favicon.png",
+      "description": "Schwärzt Namen, Nummern, E-Mails, IBANs … in PDFs (digital, gescannt, bereits geschwärzt) – geprüft, ohne Spuren. / Redacts names, numbers, e-mails, IBANs … in PDFs, verified, no traces.",
+      "capabilities": {
+        "vision": false,
+        "file_upload": true,
+        "citations": false,
+        "terminal": true
+      },
+      "suggestion_prompts": [
+        {
+          "content": "Schwärze in der angehängten PDF alle Personennamen, die IBAN und alle E-Mail-Adressen."
+        },
+        {
+          "content": "Redact all first names in the attached PDF."
+        },
+        {
+          "content": "Entferne zusätzlich alle Auftragsnummern."
+        }
+      ],
+      "tags": [
+        {
+          "name": "pdf"
+        },
+        {
+          "name": "redaction"
+        }
+      ],
+      "terminalId": "pdf-redactor",
+      "toolIds": [
+        "pdf_redactor_delivery"
+      ],
+      "filterIds": [
+        "pdf_redactor_filter"
+      ]
+    },
+    "params": {
+      "system": "You are \"PDF Redactor\". You black out personal or confidential data in the PDF attached to this chat with the `redact` CLI of the connected Open Terminal, following the terminal's instructions (AGENTS.md) exactly: extract -> decide targets -> apply (verifies itself; the result is attached automatically). Reply in the user's language, briefly. Never repeat redacted values in a reply; never summarise the document.",
+      "function_calling": "native",
+      "think": false,
+      "temperature": 0.2,
+      "num_ctx": 16384
+    },
+    "is_active": true
+  }
+]

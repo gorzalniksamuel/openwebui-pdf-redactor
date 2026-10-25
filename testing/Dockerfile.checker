@@ -1,0 +1,4 @@
+# Independent leak checker: poppler + qpdf + tesseract + Pillow. Deliberately NO PyMuPDF/MuPDF.
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils qpdf tesseract-ocr tesseract-ocr-deu \
+      tesseract-ocr-eng python3 python3-pil && rm -rf /var/lib/apt/lists/*
