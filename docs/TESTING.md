@@ -50,8 +50,8 @@ backgrounds about 45 s, 50 pages about 20 s.
 
 | Scenario | Turns | Result of the final rounds |
 |---|---|---|
-| Ticket: first names → + order number → + last name | 3 | all stages verified and clean; in 1 of 2 runs the 9b model asked for the last name in stage 3 instead of reading the document again (fixed by keeping the extract start in the history) |
-| Invoice: customer data → + issuer bank account → + e-mail | 3 | clean; the model sometimes takes "customer data" too broadly (also issuer data) or tries invented values - `apply` reports NOT FOUND with the real values, nothing wrong is claimed as redacted |
+| Ticket: first names → + order number → + last name | 3 | all stages verified and clean; after keeping the extract start in the history: 3/3 runs complete (before: in 1 of 2 runs the model asked for the last name instead of reading the document again) |
+| Invoice: customer data → + issuer bank account → + e-mail | 3 | 3/3 runs clean; the model sometimes takes "customer data" too broadly (also issuer data) or tries invented values - `apply` reports NOT FOUND with the real values, nothing wrong is claimed as redacted |
 | Redacted output re-uploaded: + last name | 1 | clean (OCR of the flattened page) |
 | Medical letter: patient data → + ICD codes | 2 | clean (name also as "Last, First", birth date, insurance no., case no., address) |
 | Lab scan: anonymise the patient | 1 | clean |
