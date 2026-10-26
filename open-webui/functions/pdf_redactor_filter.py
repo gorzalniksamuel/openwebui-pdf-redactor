@@ -56,6 +56,7 @@ class Filter:
     class Valves(BaseModel):
         tool_ids: list[str] = Field(["pdf_redactor_delivery"], description="Tool ids that are always enabled")
         old_tool_output_chars: int = Field(700, description="Max chars kept of a tool result from an earlier turn")
+        old_extract_chars: int = Field(2500, description="Chars kept of a `redact extract` result from an earlier turn")
         terminal_url: str = Field("", description="Open Terminal base URL as seen from the Open WebUI server, e.g. http://host.docker.internal:8000")
         terminal_api_key: str = Field("", description="OPEN_TERMINAL_API_KEY of the PDF Redactor terminal")
 
@@ -71,7 +72,16 @@ class Filter:
         keep = max(200, self.valves.old_tool_output_chars)
         for m in messages[:last_user]:
             c = m.get("content")
-            if m.get("role") == "tool" and isinstance(c, str) and len(c) > keep:
+            if m.get("role") != "tool" or not isinstance(c, str):
+                continue
+            if "page(s)" in c[:400] and "=== page" in c:
+                # a `redact extract` result: keep its beginning (names, numbers of page 1) for follow-up stages
+                head = self.valves.old_extract_chars
+                if len(c) > head + 300:
+                    m["content"] = (f"{c[:head]}\n[... rest of the extract shortened; run redact extract again for "
+                                    f"other pages ...]")
+                continue
+            if len(c) > keep:
                 half = keep // 2
                 m["content"] = (f"{c[:half]}\n[... older tool output shortened, {len(c) - keep} chars removed; "
                                 f"re-run the command if you need it again ...]\n{c[-half:]}")

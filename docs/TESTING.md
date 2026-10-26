@@ -37,10 +37,33 @@ Three levels:
    "redact all first names" → answer the barcode question → "remove all order numbers as well"; check that every
    reply has a download card, that each stage contains all redactions so far, and run the checker on the downloads.
 
-## Results (reference run, Open WebUI 0.11.4, qwen3.5:9b)
+## Results (reference run 2026-10-26, Open WebUI 0.11.4, Open Terminal, qwen3.5:9b, 4 CPU cores)
 
-See the table in the release notes / commit message of the version you use. The campaign must report every case clean
-(no leaks, no structure findings, no missing keep words) before a change is released.
+**Unit tests:** 42/42 passed.
 
-Known checker noise: OCR may misread a keep word (e.g. `ß`) and report it missing although it is visible; look at
-the page before treating it as over-redaction.
+**Leak campaign:** 30/30 cases clean (24 in `testing/cases.py` plus 6 on private real documents: a DB ticket and a
+7-page ticket set, first names / names / order numbers / ticket codes, second stage on a redacted output). Times per
+document: text PDFs about 1 s, invoices/letters with images 3-7 s, scans 5-9 s, 7-page ticket set with security
+backgrounds about 45 s, 50 pages about 20 s.
+
+**Chat tests** (6 scenarios, 11 turns, run twice = 22 turns per round; several rounds while tuning):
+
+| Scenario | Turns | Result of the final rounds |
+|---|---|---|
+| Ticket: first names → + order number → + last name | 3 | all stages verified and clean; in 1 of 2 runs the 9b model asked for the last name in stage 3 instead of reading the document again (fixed by keeping the extract start in the history) |
+| Invoice: customer data → + issuer bank account → + e-mail | 3 | clean; the model sometimes takes "customer data" too broadly (also issuer data) or tries invented values - `apply` reports NOT FOUND with the real values, nothing wrong is claimed as redacted |
+| Redacted output re-uploaded: + last name | 1 | clean (OCR of the flattened page) |
+| Medical letter: patient data → + ICD codes | 2 | clean (name also as "Last, First", birth date, insurance no., case no., address) |
+| Lab scan: anonymise the patient | 1 | clean |
+| English invoice: names, e-mails, phones, credit card | 1 | clean |
+
+Download card after a redaction: 20-22 of 22 turns per round (a missing card = the model ran no new apply: either the
+item was already redacted, or it asked a question). Context per request: 10.7k-13.8k tokens (limit 16k).
+
+**Takeaway:** the redaction itself (what is found, what is removed, what is verified) was leak-free in every case once
+the targets were right. Remaining errors come from the 9b model choosing targets: occasionally too broad, or a missing
+item that the user then names in a follow-up. A larger tool-capable model reduces this.
+
+Known checker noise: OCR may misread a keep word (e.g. `ß`, `ä`, a word next to a black bar) and report it missing
+although it is visible; and 6-digit pieces of a phone number can collide with other numbers. Look at the page before
+treating it as over-redaction or a leak.
