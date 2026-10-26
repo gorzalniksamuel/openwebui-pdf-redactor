@@ -1332,6 +1332,35 @@ def load_targets(src: str) -> dict:
         return {}
 
 
+def not_found_hints(src: str, missing: list[str]) -> list[tuple[str, str]]:
+    """For targets that were not found: the values of the same kind that ARE in the document (an invented IBAN ->
+    the document's IBANs + --builtin), else the most similar passages of the text layer."""
+    import difflib
+    try:
+        doc = open_pdf(src)
+        text = "\n".join(PageText(p).text for p in doc)
+        doc.close()
+    except RedactError:
+        return []
+    out = []
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    for lb in missing:
+        if lb.startswith(("builtin:", "regex:", "label:")):
+            out.append((lb, "no match in the text layer"))
+            continue
+        kind = next((k for k in ("IBAN", "EMAIL", "PHONE", "CREDIT_CARD", "TAX_ID_DE", "HEALTH_INSURANCE_DE", "DATE")
+                     if re.fullmatch(BUILTINS[k], lb.strip())), None)
+        if kind:
+            vals = list(dict.fromkeys(m.group(0).replace("\n", " ") for m in re.finditer(BUILTINS[kind], text)))
+            out.append((lb, f"looks like {kind}; the document has {len(vals)}: " + "; ".join(vals[:5])
+                        + f" -> use --builtin {kind} or the exact value" if vals else f"looks like {kind}; the document has none"))
+            continue
+        close = difflib.get_close_matches(lb, lines, n=3, cutoff=0.5) or \
+            [ln for ln in lines if any(w.lower() in ln.lower() for w in lb.split() if len(w) >= 4)][:3]
+        out.append((lb, ("similar text: " + " | ".join(close)) if close else "nothing similar in the text layer"))
+    return out
+
+
 def cmd_apply(a) -> int:
     if a.more:
         # add to the targets of the previous apply on this file (a follow-up stage needs only the new targets)
@@ -1383,8 +1412,14 @@ def cmd_apply(a) -> int:
     if res["unredacted_barcode_pages"]:
         print(f"  barcode/QR code(s) kept on page(s) {', '.join(map(str, res['unredacted_barcode_pages']))} "
               f"(only black them out with --barcodes if the user asks for it)")
-    if res["not_found"]:
-        print(f"WARNING: not found: {', '.join(res['not_found'])}")
+    missing = [lb for lb in res["not_found"] if lb not in ("address", "barcodes")]
+    if "address" in res["not_found"]:
+        print("  note: no address block/field found next to the names (give it with --address \"street\" \"postcode city\")")
+    if missing:
+        print(f"NOT FOUND - nothing was redacted for: {', '.join(missing)}")
+        for lb, hint in not_found_hints(a.file, missing):
+            print(f"  {lb}: {hint}")
+        print("  -> copy the correct value from `redact extract` (never guess) and run apply --more again")
     ocr_like = sorted(set(res["needs_ocr_pages"] + res["image_heavy_pages"]))
     if ocr_like:
         print(f"NOTE: page(s) {', '.join(map(str, ocr_like))} were searched by OCR (scan or mostly images); OCR can "

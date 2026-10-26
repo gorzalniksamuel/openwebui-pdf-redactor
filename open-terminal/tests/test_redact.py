@@ -713,3 +713,12 @@ def test_address_finds_labelled_field_in_data_block_and_takes_values(tmp_path):
     out2 = tmp_path / "m2_redacted.pdf"
     r = run("apply", pdf, "--mode", "text", "--address", "Birkenweg 3, 40489 Düsseldorf", "-o", out2)
     assert r.returncode == 0 and "Birkenweg" not in page_text(out2), r.stdout + r.stderr
+
+
+def test_not_found_lists_real_values_of_the_same_kind(tmp_path):
+    pdf = make_letter(tmp_path / "l.pdf")
+    r = run("apply", pdf, "--terms", "Max Weber", "DE12 3456 7890 1234 5678 90", "info@erfunden.de", "Kölner Str. 42")
+    assert r.returncode == 0 and "NOT FOUND" in r.stdout, r.stdout
+    assert "looks like IBAN" in r.stdout and "DE89 3704 0044 0532 0130 00" in r.stdout and "--builtin IBAN" in r.stdout
+    assert "looks like EMAIL" in r.stdout and "erika.mustermann@example.de" in r.stdout
+    assert "never guess" in r.stdout
