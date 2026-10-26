@@ -872,7 +872,33 @@ def name_parts(term: str) -> list[str]:
 TITLE_BEFORE = re.compile(r"(?:\b(?:Herrn?|Frau|Dr|Prof|Mr|Mrs|Ms|Miss|Mme|Mlle)\.?\s+)+$", re.IGNORECASE)
 
 
-def find_hits(doc, matchers, hints=None, auto=None, barcodes=False, images=None):
+UP = "A-ZÄÖÜÀ-ÖØ-Þ"
+STREET_LINE = re.compile(rf"^(?:[{UP}][^\s\d,]*\.?[ \-]+){{0,3}}[{UP}][^\s\d,]*\.?[ ]+\d{{1,4}}(?:[ ]?[a-zA-Z])?(?:[-/]\d{{1,4}})?"
+                         rf"(?:,?[ ]+(?:[A-Z]{{1,2}}-)?\d{{4,5}}[ ]+[{UP}][^\d]*)?$"
+                         rf"|^\d{{1,5}}[ ]+[{UP}][\w.\- ]+$|^(?i:postfach|p\.?o\.? box)[ ]+\d+$")
+CITY_LINE = re.compile(rf"^(?:[A-Z]{{1,2}}-)?\d{{4,5}}[ ]+[{UP}][^\d]*$|^[{UP}][\w .\-]+,[ ]+[A-Z]{{2}}[ ]+\d{{5}}$")
+
+
+def address_spans(text: str, end: int) -> list[tuple[int, int]]:
+    """--address: the postal address block right below a name (street + number, postcode + city, P.O. box; at most
+    3 lines, stops at the first line that is none of these) -> character spans of those lines."""
+    spans = []
+    i = text.find("\n", end)
+    for _ in range(3):
+        if i < 0:
+            break
+        j = text.find("\n", i + 1)
+        j = len(text) if j < 0 else j
+        line = text[i + 1:j].strip()
+        if not line or not (STREET_LINE.match(line) or CITY_LINE.match(line)):
+            break
+        a_ = text.index(line, i + 1)
+        spans.append((a_, a_ + len(line)))
+        i = j if j < len(text) else -1
+    return spans
+
+
+def find_hits(doc, matchers, hints=None, auto=None, barcodes=False, images=None, address=False, found_text=None):
     """-> {page_index: [Hit]}, Counter[(label, page)], [ocr pages], [image-heavy pages]
     hints (list) receives parts of multi-word terms that still occur outside any match.
     auto (list, optional): parts preceded by a title (Herr/Frau/Dr./Mr. ...) are redacted too and listed here.
@@ -911,6 +937,20 @@ def find_hits(doc, matchers, hints=None, auto=None, barcodes=False, images=None)
                     rects[i].extend(rs)
                     counts[(label, i + 1)] += 1
                     covered[a_:b_] = b"\1" * (b_ - a_)
+        if address:
+            name_ends = [m.end() for lb, rx in matchers if not lb.startswith(("label:", "regex:", "builtin:"))
+                         for m in rx.finditer(pt.text)]
+            for e in name_ends:
+                for a_, b_ in address_spans(pt.text, e):
+                    if all(covered[a_:b_]):
+                        continue
+                    rs = pt.rects(a_, b_)
+                    if rs:
+                        rects[i].extend(rs)
+                        counts[("address", i + 1)] += 1
+                        covered[a_:b_] = b"\1" * (b_ - a_)
+                        if found_text is not None:
+                            found_text.append(pt.text[a_:b_])
         for label, rx in values:
             for m in rx.finditer(pt.text):
                 if m.end() <= m.start() or any(covered[m.start():m.end()]):
@@ -961,6 +1001,24 @@ def find_hits(doc, matchers, hints=None, auto=None, barcodes=False, images=None)
                                 counts[(label, i + 1)] += 1
                                 img_hits += 1
                                 auto.append({"word": part, "from_term": label, "page": i + 1})
+        if address:
+            for lb, rx in matchers:
+                if lb.startswith(("label:", "regex:", "builtin:")):
+                    continue
+                for m in rx.finditer(it.text):
+                    for a_, b_ in address_spans(it.text, m.end()):
+                        if all(it_covered[a_:b_]):
+                            continue
+                        hs = [h for h in it.rects(a_, b_)
+                              if not any(area(h.core & c) > 0.5 * area(h.core) for c in text_cores)]
+                        if hs:
+                            rects[i].extend(hs)
+                            counts[("address", i + 1)] += 1
+                            img_hits += 1
+                            hit_regions.update(it.line_region[it.lines[a_]] for _ in [0])
+                            it_covered[a_:b_] = b"\1" * (b_ - a_)
+                            if found_text is not None:
+                                found_text.append(it.text[a_:b_])
         if barcodes:
             for r in it.barcodes:
                 rects[i].append(Hit(pymupdf.Rect(r), "h", pymupdf.Rect(r)))
@@ -1056,7 +1114,8 @@ def save_clean(doc, path, garbage=4, clean=True):
              encryption=pymupdf.PDF_ENCRYPT_NONE)
 
 
-def redact_pdf(src: str, out: str, matchers, mode: str, auto_surnames: bool = True, barcodes: bool = False) -> dict:
+def redact_pdf(src: str, out: str, matchers, mode: str, auto_surnames: bool = True, barcodes: bool = False,
+               address: bool = False) -> dict:
     t0 = time.perf_counter()
     timings = {}
     lap_t = [t0]
@@ -1071,7 +1130,8 @@ def redact_pdf(src: str, out: str, matchers, mode: str, auto_surnames: bool = Tr
     hints: list = []
     auto: list | None = [] if auto_surnames else None
     images: dict = {}
-    rects, counts, ocr_pages, heavy_pages = find_hits(doc, matchers, hints, auto, barcodes, images)
+    addr_texts: list = []
+    rects, counts, ocr_pages, heavy_pages = find_hits(doc, matchers, hints, auto, barcodes, images, address, addr_texts)
     # targets of the leftover image scan, taken BEFORE redaction removes the label values from the text layer
     terms = [lb for lb, _ in matchers if not lb.startswith(("label:", "regex:", "builtin:"))]
     targets = scan_targets(terms, [v for _, v in text_layer_values(doc, matchers)]
@@ -1222,7 +1282,7 @@ def redact_pdf(src: str, out: str, matchers, mode: str, auto_surnames: bool = Tr
     timings["total"] = round((time.perf_counter() - t0) * 1000)
 
     per_term: dict[str, dict] = {}
-    for label in [lb for lb, _ in matchers] + (["barcodes"] if barcodes else []):
+    for label in [lb for lb, _ in matchers] + (["barcodes"] if barcodes else []) + (["address"] if address else []):
         pages = {p: c for (lb, p), c in sorted(counts.items()) if lb == label}
         per_term[label] = {"total": sum(pages.values()), "pages": pages}
     return {"input": src, "output": out, "mode": mode, "pages": n_pages,
@@ -1233,6 +1293,7 @@ def redact_pdf(src: str, out: str, matchers, mode: str, auto_surnames: bool = Tr
             "image_hits": sum(v["hits"] for v in images.values()),
             "images_removed": {i + 1: len(v) for i, v in removed.items()},
             "scan_extra_words": {i + 1: n for i, n in n_extra.items()},
+            "address_texts": addr_texts,
             "images_ocr": any(v["ocr"] for v in images.values()),
             "unredacted_barcode_pages": [] if barcodes else [i + 1 for i, v in images.items() if v["barcodes"]]}
 
@@ -1255,9 +1316,11 @@ def cmd_apply(a) -> int:
     out = a.output or default_out(a.file)
     if os.path.abspath(out) == os.path.abspath(a.file):
         raise RedactError("output must differ from input")
-    res = redact_pdf(a.file, out, matchers, a.mode, auto_surnames=not a.exact, barcodes=a.barcodes)
-    ver = verify_pdf(out, a.terms or [], a.regex, a.builtin, a.mode, res["pages"], original=a.file, labels=a.label,
-                     quick_images=True)
+    res = redact_pdf(a.file, out, matchers, a.mode, auto_surnames=not a.exact, barcodes=a.barcodes,
+                     address=a.address)
+    addr = [t for t in dict.fromkeys(res.pop("address_texts")) if len(t.strip()) >= 4]
+    ver = verify_pdf(out, (a.terms or []) + addr, a.regex, a.builtin, a.mode, res["pages"], original=a.file,
+                     labels=a.label, quick_images=True)
     write_verified_marker(out, ver["passed"])
     res["verify"] = ver
     if a.json:
@@ -1734,6 +1797,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("apply", help="redact, flatten/rewrite, scrub")
     p.add_argument("file")
     p.add_argument("-o", "--output")
+    p.add_argument("--address", action="store_true",
+                   help="also redact the postal address block right below each name of --terms (street, postcode, city)")
     p.add_argument("--barcodes", action="store_true",
                    help="also black out every barcode / QR code (they can encode names, e.g. on tickets)")
     p.add_argument("--exact", action="store_true",

@@ -60,6 +60,10 @@ OPEN_TERMINAL_PIP_PACKAGES=pymupdf==1.26.5
 
 (the redact files live in the home volume and persist anyway). Or use the hardened image in `open-terminal/docker/`.
 
+Use **one** of the two ways per terminal: the setup script puts `redact` into `~/.local/bin`, which comes first on
+`PATH` and would shadow the version built into the Docker image. When switching to the image, delete
+`~/.local/bin/redact` and `~/.local/share/redact` in the terminal; when updating via the script, just re-run it.
+
 ## How a chat works
 
 1. The attached PDF is written into the terminal (chat uploads = filesystem; Open WebUI does not text-extract it).

@@ -664,3 +664,22 @@ def test_label_takes_address_and_names_and_medical_builtins(tmp_path):
         assert gone not in t, gone
     for kept in ("Akuter NSTEMI", "02.03.2026", "Hannes Kröger", "Parkstraße 4, 40210 Düsseldorf", "Anschrift:"):
         assert kept in t, kept
+
+
+def test_address_option_takes_the_block_below_the_name(tmp_path):
+    doc = pymupdf.open()
+    page = doc.new_page()
+    for k, t in enumerate(["Nordlicht Haustechnik GmbH, Hafenstraße 9, 20457 Hamburg", "", "Herrn", "Jonas Albrecht",
+                           "Lindenallee 17", "50667 Köln", "Köln, 12.03.2026", "Sehr geehrter Herr Albrecht,",
+                           "die Wartung in der Ringstraße 4 ist erledigt."]):
+        page.insert_text((50, 80 + k * 16), t, fontsize=11)
+    pdf = tmp_path / "inv.pdf"
+    doc.save(pdf)
+    out = tmp_path / "inv_redacted.pdf"
+    r = run("apply", pdf, "--mode", "text", "--terms", "Jonas Albrecht", "--address", "-o", out)
+    assert r.returncode == 0 and "VERIFY PASSED" in r.stdout and "address: 2" in r.stdout, r.stdout
+    t = page_text(out)
+    for gone in ("Jonas Albrecht", "Lindenallee", "50667", "Herr Albrecht"):
+        assert gone not in t, gone
+    for kept in ("Hafenstraße 9, 20457 Hamburg", "Köln, 12.03.2026", "Ringstraße 4", "Herrn"):
+        assert kept in t, kept

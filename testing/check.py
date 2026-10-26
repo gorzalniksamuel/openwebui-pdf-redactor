@@ -131,7 +131,8 @@ def main():
     for s in a.secret:
         if found(s, var_txt) and not found(s, page_txt):
             res["leaks"].append(f"ocr-variant(faint/rotated/mirrored): {s}")
-    digits = [re.sub(r"\D", "", s) for s in a.secret if len(re.sub(r"\D", "", s)) >= 10]
+    # pieces of long plain numbers (order numbers, account numbers); not of phone numbers etc. with separators
+    digits = [s for s in a.secret if re.fullmatch(r"\d{10,}", s.strip())]
     flat = re.sub(r"\D", "", var_txt + page_txt + img_txt)
     for d in digits:
         pieces = [d[i:i + 6] for i in range(len(d) - 5)]

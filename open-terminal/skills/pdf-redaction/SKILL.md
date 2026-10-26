@@ -1,6 +1,6 @@
 ---
 name: pdf-redaction
-description: Black out names, numbers, e-mails, IBANs, order numbers, patient data etc. in PDFs (digital, scanned or already redacted) with the redact CLI; verified output, no traces left.
+description: Black out names, addresses, numbers, e-mails, IBANs, order numbers, patient data etc. in PDFs (digital, scanned or already redacted) with the redact CLI; verified output, no traces left.
 ---
 
 # PDF redaction toolkit (`redact`)
@@ -27,8 +27,9 @@ Workflow:
    Checklist for "personal data" / "Kundendaten" / "Patientendaten" / "anonymise the person" - take EVERY item
    that is in the document, for that person only:
    - name, every spelling: `--terms "Erika Musterfrau"` (also catches "Musterfrau, Erika"; "Herr/Frau X" is added)
-   - address: `--label "Anschrift"` / `--label "Adresse"` if labelled (takes street, number, postcode, city),
-     otherwise `--terms "Birkenweg 3" "40489 Düsseldorf"` exactly as printed (street line AND postcode line)
+   - address: add `--address` (takes the address block printed right below the person's name: street, postcode,
+     city); if the address is elsewhere: `--label "Anschrift"` / `--label "Adresse"` when labelled, otherwise
+     `--terms "Birkenweg 3" "40489 Düsseldorf"` exactly as printed (street line AND postcode line)
    - date of birth `--builtin BIRTHDATE`, insurance number `--builtin HEALTH_INSURANCE_DE`
    - IDs: `--label "Kundennummer" "Fallnummer" "Patienten-ID" "Versichertennummer"` (whatever labels exist)
    - the person's own phone/e-mail/IBAN/VAT id: `--terms "<exact value>"` (labels like "Tel." or "USt-IdNr"
@@ -36,6 +37,9 @@ Workflow:
    Keep the issuer's/clinic's/doctors' data, diagnoses and findings unless asked.
    Other typical requests: "all numbers/bank data" on invoices: `--builtin IBAN TAX_ID_DE EMAIL PHONE`;
    "diagnoses"/"ICD codes": `--builtin ICD10` (+ diagnosis texts as `--terms` if the words must go too).
+   "Anonymise the patient/customer/person" is clear: apply the whole checklist, do not ask.
+   A category without an owner ("the e-mail address", "phone numbers", "IBAN") means every value of it in the
+   document: use the --builtin.
    Ask one short question only if it is really unclear what to redact; otherwise go on.
 3. `redact apply "FILE.pdf" <targets>` (default mode flatten = safest; `--mode text` only if the user
    wants selectable text). apply verifies the result itself. VERIFY PASSED = done: the redacted PDF is
@@ -44,8 +48,9 @@ Workflow:
 4. Reply in one or two sentences: counts per category and pages, "verified", "download card above".
    Mention pages that were read by OCR (apply prints a NOTE) so the user looks them over.
 
-More redactions later in the same chat ("also the order numbers", "and the IBAN"): run apply AGAIN on the
-ORIGINAL attached file with ALL targets so far (earlier + new). Each stage gives a new verified download.
+More redactions later in the same chat ("also the order numbers", "and the IBAN"): ALWAYS run apply AGAIN on the
+ORIGINAL attached file with ALL targets so far (earlier + new), even if you think it is already covered. Each
+stage gives a new verified download.
 If the user attaches a PDF that is already redacted, simply redact it like any other file.
 Do not stop after announcing a step; run the command in the same turn.
 

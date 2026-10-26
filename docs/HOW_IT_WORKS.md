@@ -15,6 +15,7 @@ targets: --terms "Exact Text" ... | --label "Auftragsnummer" ... | --builtin EMA
 | `--label "Auftragsnummer"` | the value after every such label on the same line: a code/number with its digit groups, or a name of up to 3 capitalised words (titles skipped). Every value found is also searched literally everywhere else (text and images) |
 | `--builtin` | `EMAIL PHONE IBAN DATE BIRTHDATE URL POSTCODE_DE CREDIT_CARD IP_ADDRESS TAX_ID_DE HEALTH_INSURANCE_DE ICD10 NUMBER` (`BIRTHDATE` = a date after geb./Geburtsdatum/born/DOB/*; `TAX_ID_DE` = tax id, Steuernummer, DE VAT id; `HEALTH_INSURANCE_DE` = Krankenversichertennummer) |
 | `--regex` | a Python regular expression |
+| `--address` | the postal address block printed right below each `--terms` name (street + number, postcode + city, P.O. box; up to 3 lines) |
 | `--barcodes` | every barcode/QR code (only on explicit request) |
 
 ### extract
