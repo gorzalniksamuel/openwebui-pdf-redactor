@@ -37,6 +37,9 @@
       ],
       "filterIds": [
         "pdf_redactor_filter"
+      ],
+      "skillIds": [
+        "pdf-redaction"
       ]
     },
     "params": {

@@ -5,7 +5,8 @@ What it sets up (idempotent, safe to re-run):
   1. Open Terminal connection  (Admin Settings -> Integrations -> Open Terminal), chat uploads = filesystem
   2. Tool      pdf_redactor_delivery  (Workspace -> Tools) + valves (terminal URL, key)
   3. Function  pdf_redactor_filter    (Admin Panel -> Functions), activated + valves
-  4. Model     pdf-redactor           (Workspace -> Models): base model, system prompt, tool, filter, terminal
+  4. Skill     pdf-redaction          (Workspace -> Skills): the workflow, from open-terminal/skills/
+  5. Model     pdf-redactor           (Workspace -> Models): base model, system prompt, tool, filter, skill, terminal
 
 Usage:
   python3 setup_openwebui.py --webui http://localhost:3000 --api-key sk-... \\
@@ -104,7 +105,17 @@ def main():
     must(*call(a.webui, "POST", "/api/v1/functions/id/pdf_redactor_filter/valves/update", token, valves),
          "function valves")
 
-    # 4. model
+    # 4. workspace skill (Workspace -> Skills): the redaction workflow, visible and editable in Open WebUI
+    skill_md = open(os.path.join(HERE, "..", "open-terminal", "skills", "pdf-redaction", "SKILL.md")).read()
+    skill = {"id": "pdf-redaction", "name": "pdf-redaction",
+             "description": "Black out names, addresses, numbers, e-mails, IBANs, order numbers, patient data etc. in "
+                            "PDFs with the redact CLI of the PDF Redactor terminal; verified output, no traces left.",
+             "content": skill_md, "meta": {"tags": ["pdf", "redaction"]}, "is_active": True}
+    st, _ = call(a.webui, "GET", "/api/v1/skills/id/pdf-redaction", token)
+    must(*call(a.webui, "POST", "/api/v1/skills/id/pdf-redaction/update" if st == 200 else "/api/v1/skills/create",
+               token, skill), "workspace skill pdf-redaction")
+
+    # 5. model
     model = json.load(open(os.path.join(HERE, "models", "pdf-redactor.json")))[0]
     model["base_model_id"] = a.base_model
     model["params"]["system"] = open(os.path.join(HERE, "prompts", "system-prompt.txt")).read().strip()

@@ -15,6 +15,7 @@ services:
       REDACT_RETENTION_MIN: "60"     # uploads/outputs are deleted 60 min after their last change (0 = never)
       TMPDIR: /tmp
       # REDACT_FULL_APP_URL: "https://redactor.example.com"   # optional link shown for difficult scans
+      # REDACT_TERMINAL_SKILL: "1"   # also serve the skill from the terminal (normally it is a workspace skill)
       OPEN_TERMINAL_EXECUTE_DESCRIPTION: >-
         PDF redaction: the `redact` CLI is installed (redact extract FILE.pdf; redact apply FILE.pdf --terms "X"
         [--label "Auftragsnummer"] [--builtin IBAN|EMAIL|PHONE|DATE]). Follow ~/AGENTS.md.

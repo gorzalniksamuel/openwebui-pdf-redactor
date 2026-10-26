@@ -17,7 +17,7 @@ lifting is a deterministic CLI (`redact`, Python + PyMuPDF + Ghostscript + qpdf 
 |---|---|---|
 | `open-terminal/redact.py` | Open Terminal: `~/.local/share/redact/redact.py` + `redact` command in `~/.local/bin/` | `setup_openterminal.py` (or Docker image) |
 | `open-terminal/AGENTS.md` | Open Terminal: `~/AGENTS.md` (Open WebUI injects it into every chat turn) | `setup_openterminal.py` |
-| `open-terminal/skills/pdf-redaction/SKILL.md` | Open Terminal: `~/.agents/skills/pdf-redaction/SKILL.md` (listed as a terminal skill) | `setup_openterminal.py` |
+| `open-terminal/skills/pdf-redaction/SKILL.md` | Open WebUI: **Workspace → Skills** (id `pdf-redaction`, linked to the model). Optionally also served by the terminal (`--terminal-skill` / `REDACT_TERMINAL_SKILL=1`) - not both, or the model sees it twice | `setup_openwebui.py` or paste |
 | `open-webui/tools/pdf_redactor_delivery.py` | Open WebUI: **Workspace → Tools** (id `pdf_redactor_delivery`) | `setup_openwebui.py` or paste |
 | `open-webui/functions/pdf_redactor_filter.py` | Open WebUI: **Admin Panel → Functions** (id `pdf_redactor_filter`, filter, enabled) | `setup_openwebui.py` or paste |
 | `open-webui/prompts/system-prompt.txt` | Open WebUI: model **PDF Redactor** → System Prompt | `setup_openwebui.py` or paste |
@@ -36,10 +36,10 @@ has passwordless `sudo`), a tool-capable model in Open WebUI (tested: `qwen3.5:9
 ```bash
 git clone https://github.com/gorzalniksamuel/openwebui-pdf-redactor && cd openwebui-pdf-redactor
 
-# 1. install the redactor into Open Terminal (dependencies, redact CLI, AGENTS.md, skill, self-test)
+# 1. install the redactor into Open Terminal (dependencies, redact CLI, AGENTS.md, self-test)
 python3 open-terminal/setup_openterminal.py --url http://localhost:8000 --key "$OPEN_TERMINAL_API_KEY"
 
-# 2. configure Open WebUI (terminal connection, tool, filter, model). API key: Settings → Account → API Keys
+# 2. configure Open WebUI (terminal connection, tool, filter, skill, model). API key: Settings → Account → API Keys
 python3 open-webui/setup_openwebui.py --webui http://localhost:3000 --api-key "$OWUI_API_KEY" \
     --terminal-url http://host.docker.internal:8000 --terminal-key "$OPEN_TERMINAL_API_KEY" \
     --base-model qwen3.5:9b

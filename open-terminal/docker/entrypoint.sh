@@ -13,7 +13,12 @@ fi
 export HOME=/home/user
 export PATH="/home/user/.local/bin:${PATH}"
 cp /opt/redact/AGENTS.md "$HOME/AGENTS.md"
-mkdir -p "$HOME/.agents/skills/pdf-redaction" && cp /opt/redact/skills/pdf-redaction/SKILL.md "$HOME/.agents/skills/pdf-redaction/" 2>/dev/null || true
+# the skill normally lives in Open WebUI (Workspace -> Skills); REDACT_TERMINAL_SKILL=1 also serves it from here
+if [ "${REDACT_TERMINAL_SKILL:-0}" = 1 ]; then
+  mkdir -p "$HOME/.agents/skills/pdf-redaction" && cp /opt/redact/skills/pdf-redaction/SKILL.md "$HOME/.agents/skills/pdf-redaction/"
+else
+  rm -rf "$HOME/.agents/skills/pdf-redaction"
+fi
 mkdir -p "$HOME/.local/bin"
 [ -f "$HOME/.bashrc" ] || cp /etc/skel/.bashrc "$HOME/.bashrc" 2>/dev/null || true
 [ -f "$HOME/.profile" ] || cp /etc/skel/.profile "$HOME/.profile" 2>/dev/null || true

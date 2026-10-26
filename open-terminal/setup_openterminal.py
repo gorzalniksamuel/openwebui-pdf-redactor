@@ -9,8 +9,9 @@ What it does (idempotent):
      Needs root or passwordless sudo inside the terminal (the default Open Terminal image has it; the slim/alpine
      images do not -> use the Dockerfile in this folder instead).
   2. uploads redact.py to ~/.local/share/redact/, a `redact` command to ~/.local/bin/
-  3. writes the agent instructions to ~/AGENTS.md (kept between markers if the file already has other content)
-     and the skill to ~/.agents/skills/pdf-redaction/SKILL.md
+  3. writes the agent instructions to ~/AGENTS.md (kept between markers if the file already has other content);
+     with --terminal-skill also the skill to ~/.agents/skills/pdf-redaction/SKILL.md (normally the skill is created
+     in Open WebUI by setup_openwebui.py)
   4. sets the retention time (~/.config/redact/retention_min): PDFs + side files in the home directory older
      than N minutes are deleted at the start of every redact command (0 = never)
   5. self-test: creates a small PDF, redacts it, verifies it
@@ -67,6 +68,9 @@ def main():
     ap.add_argument("--key", default=os.environ.get("OPEN_TERMINAL_API_KEY"), help="Open Terminal API key")
     ap.add_argument("--retention", type=int, default=60, help="minutes until uploads/outputs are deleted (0 = never)")
     ap.add_argument("--skip-deps", action="store_true", help="do not install apt/pip packages")
+    ap.add_argument("--terminal-skill", action="store_true",
+                    help="also install the skill in the terminal (~/.agents/skills); not needed when setup_openwebui.py "
+                         "creates it as a workspace skill - both together list it twice")
     a = ap.parse_args()
     if not a.key:
         sys.exit("--key (or env OPEN_TERMINAL_API_KEY) is required")
@@ -117,10 +121,11 @@ def main():
     else:
         new = block + "\n"
     t.write(f"{home}/AGENTS.md", new)
-    t.write(f"{home}/.agents/skills/pdf-redaction/SKILL.md",
-            open(os.path.join(HERE, "skills", "pdf-redaction", "SKILL.md")).read())
+    if a.terminal_skill:  # optional: the skill normally lives in Open WebUI (Workspace -> Skills)
+        t.write(f"{home}/.agents/skills/pdf-redaction/SKILL.md",
+                open(os.path.join(HERE, "skills", "pdf-redaction", "SKILL.md")).read())
     t.write(f"{home}/.config/redact/retention_min", f"{a.retention}\n")
-    print(f"ok    AGENTS.md, skill, retention {a.retention} min")
+    print(f"ok    AGENTS.md{', terminal skill' if a.terminal_skill else ''}, retention {a.retention} min")
 
     test = ("cd $(mktemp -d) && python3 -c \"import pymupdf; d=pymupdf.open(); p=d.new_page(); "
             "p.insert_text((60,80),'Self test Lena Hofmann, IBAN DE89 3704 0044 0532 0130 00'); d.save('t.pdf')\" "

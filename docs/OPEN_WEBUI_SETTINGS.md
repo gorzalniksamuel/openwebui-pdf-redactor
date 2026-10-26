@@ -63,7 +63,23 @@ What it does:
 - outlet: after every reply, attaches each verified, not yet delivered `<attached file>_redacted.pdf` of this chat
   as a download card (the model does not have to remember to deliver).
 
-## 4. Model `PDF Redactor`
+## 4. Skill `pdf-redaction`
+
+**Workspace → Skills → +**
+
+| Field | Value |
+|---|---|
+| ID / Name | `pdf-redaction` |
+| Description | Black out names, addresses, numbers, e-mails, IBANs, order numbers, patient data etc. in PDFs with the redact CLI of the PDF Redactor terminal; verified output, no traces left. |
+| Content | `open-terminal/skills/pdf-redaction/SKILL.md` |
+| Active | on |
+
+With native tool calling, Open WebUI lists every available skill to the model (name + description) and the model loads
+the full text when needed; the terminal's `AGENTS.md` (same workflow, always in context) stays the primary instruction.
+Skills served by a terminal (`~/.agents/skills`) appear only in the chat (`$` menu, marked "Terminal"), not under
+Workspace → Skills; do not install the skill in both places.
+
+## 5. Model `PDF Redactor`
 
 **Workspace → Models → Import** → `open-webui/models/pdf-redactor.json`, then open it and check:
 
@@ -76,13 +92,14 @@ What it does:
 | Capabilities | File upload **on**, Vision off, Citations off, Terminal on |
 | Tools | **PDF Redactor delivery** ticked |
 | Filters | **PDF Redactor filter** ticked |
+| Skills | **pdf-redaction** ticked |
 | Terminal | **PDF Redactor** (the connection from step 1) |
 | Visibility | as you like (public or a group) |
 
 `num_ctx`: 16384 is enough because the filter trims history and `redact extract` caps its output (about 9,000
 characters). If several apps share the same Ollama model, keep their context length equal to avoid reloads.
 
-## 5. Use
+## 6. Use
 
 New chat → model **PDF Redactor** (the terminal is preselected) → attach a PDF → e.g.
 "Schwärze alle Vornamen", "redact all names, the IBAN and e-mails", follow-up "zusätzlich alle Auftragsnummern".
