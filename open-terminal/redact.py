@@ -880,21 +880,33 @@ STREET_LINE = re.compile(rf"^(?:[{UP}][^\s\d,]*\.?[ \-]+){{0,3}}[{UP}][^\s\d,]*\
 CITY_LINE = re.compile(rf"^(?:[A-Z]{{1,2}}-)?\d{{4,5}}[ ]+[{UP}][^\d]*$|^[{UP}][\w .\-]+,[ ]+[A-Z]{{2}}[ ]+\d{{5}}$")
 
 
+ADDRESS_LABEL = re.compile(r"^(?i:anschrift|adresse|wohnanschrift|wohnort|postanschrift|address|home address)"
+                           r"\s*[:.]?\s*(?=\S)")
+DATA_LINE = re.compile(r"^[^\W\d][^:]{0,30}:\s*\S")  # "Versichertennummer: ..." - a data block keeps going
+
+
 def address_spans(text: str, end: int) -> list[tuple[int, int]]:
-    """--address: the postal address block right below a name (street + number, postcode + city, P.O. box; at most
-    3 lines, stops at the first line that is none of these) -> character spans of those lines."""
+    """--address: the postal address of the person whose name ends at `end`: the lines right below it that are a
+    street + number, postcode + city or P.O. box, or a labelled address field ("Anschrift: ...") within the next
+    4 lines of a data block ("Label: value" lines are skipped). -> character spans."""
     spans = []
     i = text.find("\n", end)
-    for _ in range(3):
+    for _ in range(4):
         if i < 0:
             break
         j = text.find("\n", i + 1)
         j = len(text) if j < 0 else j
-        line = text[i + 1:j].strip()
-        if not line or not (STREET_LINE.match(line) or CITY_LINE.match(line)):
+        raw = text[i + 1:j]
+        line = raw.strip()
+        lab = ADDRESS_LABEL.match(line)
+        if lab:
+            a_ = i + 1 + raw.index(line) + lab.end()
+            spans.append((a_, i + 1 + raw.index(line) + len(line)))
+        elif line and (STREET_LINE.match(line) or CITY_LINE.match(line)):
+            a_ = i + 1 + raw.index(line)
+            spans.append((a_, a_ + len(line)))
+        elif not (line and not spans and DATA_LINE.match(line)):
             break
-        a_ = text.index(line, i + 1)
-        spans.append((a_, a_ + len(line)))
         i = j if j < len(text) else -1
     return spans
 
@@ -1329,9 +1341,14 @@ def cmd_apply(a) -> int:
         for key in ("terms", "regex", "builtin", "label"):
             setattr(a, key, list(dict.fromkeys(prev.get(key, []) + (getattr(a, key) or []))))
         a.barcodes = a.barcodes or prev.get("barcodes", False)
-        a.address = a.address or prev.get("address", False)
+        if a.address is None:
+            a.address = prev.get("address", False)
         a.mode = a.mode or prev.get("mode")
     a.mode = a.mode or "flatten"
+    if isinstance(a.address, list):  # --address [TEXT ...]: flag + optional exact address texts
+        a.terms = list(dict.fromkeys((a.terms or []) + a.address))
+        a.address = True
+    a.address = bool(a.address)
     matchers = build_matchers(a.terms, a.regex, a.builtin, a.label)
     out = a.output or default_out(a.file)
     if os.path.abspath(out) == os.path.abspath(a.file):
@@ -1831,8 +1848,9 @@ def main(argv=None) -> int:
     p.add_argument("-o", "--output")
     p.add_argument("--more", action="store_true",
                    help="follow-up stage: keep all targets of the previous apply on this file and add the given ones")
-    p.add_argument("--address", action="store_true",
-                   help="also redact the postal address block right below each name of --terms (street, postcode, city)")
+    p.add_argument("--address", nargs="*", default=None, metavar="TEXT",
+                   help="also redact the postal address of each --terms name (block below the name or a labelled "
+                        "'Anschrift:' field); optional address texts are redacted as given")
     p.add_argument("--barcodes", action="store_true",
                    help="also black out every barcode / QR code (they can encode names, e.g. on tickets)")
     p.add_argument("--exact", action="store_true",

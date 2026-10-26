@@ -27,9 +27,8 @@ Workflow:
    Checklist for "personal data" / "Kundendaten" / "Patientendaten" / "anonymise the person" - take EVERY item
    that is in the document, for that person only:
    - name, every spelling: `--terms "Erika Musterfrau"` (also catches "Musterfrau, Erika"; "Herr/Frau X" is added)
-   - address: add `--address` (takes the address block printed right below the person's name: street, postcode,
-     city); if the address is elsewhere: `--label "Anschrift"` / `--label "Adresse"` when labelled, otherwise
-     `--terms "Birkenweg 3" "40489 Düsseldorf"` exactly as printed (street line AND postcode line)
+   - address: add `--address` (finds the address block below the person's name and labelled fields like
+     "Anschrift: ..."); you can also give the address text as printed: `--address "Birkenweg 3" "40489 Düsseldorf"`
    - date of birth `--builtin BIRTHDATE`, insurance number `--builtin HEALTH_INSURANCE_DE`
    - IDs: `--label "Kundennummer" "Fallnummer" "Patienten-ID" "Versichertennummer"` (whatever labels exist)
    - the person's own phone/e-mail/IBAN/VAT id: `--terms "<exact value>"` (labels like "Tel." or "USt-IdNr"
@@ -40,6 +39,8 @@ Workflow:
    "Anonymise the patient/customer/person" is clear: apply the whole checklist, do not ask.
    A category without an owner ("the e-mail address", "phone numbers", "IBAN") means every value of it in the
    document: use the --builtin.
+   Copy every value exactly from the extract output - never guess or invent a value. "not found" after apply
+   means the value is wrong: check the extract output and run apply again.
    Ask one short question only if it is really unclear what to redact; otherwise go on.
 3. `redact apply "FILE.pdf" <targets>` (default mode flatten = safest; `--mode text` only if the user
    wants selectable text). apply verifies the result itself. VERIFY PASSED = done: the redacted PDF is

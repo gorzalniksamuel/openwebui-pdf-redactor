@@ -694,3 +694,22 @@ def test_more_adds_to_previous_targets(tmp_path):
     t = page_text(tmp_path / "l_redacted.pdf")
     assert "Max Weber" not in t and "DE89" not in t and "Erika Mustermann" in t  # mode text kept from stage 1
     assert run("apply", make_letter(tmp_path / "n.pdf"), "--more", "--terms", "X").returncode == 2  # no earlier stage
+
+
+def test_address_finds_labelled_field_in_data_block_and_takes_values(tmp_path):
+    doc = pymupdf.open()
+    page = doc.new_page()
+    for k, t in enumerate(["Patient: Erika Musterfrau, geb. 14.02.1961", "Versichertennummer: A123456789",
+                           "Fallnummer: 2026-778812", "Anschrift: Birkenweg 3, 40489 Düsseldorf",
+                           "Diagnosen: Hypertonie", "Klinik: Parkstraße 4, 40210 Düsseldorf"]):
+        page.insert_text((50, 80 + k * 16), t, fontsize=11)
+    pdf = tmp_path / "m.pdf"
+    doc.save(pdf)
+    out = tmp_path / "m_redacted.pdf"
+    r = run("apply", pdf, "--mode", "text", "--terms", "Erika Musterfrau", "--address", "-o", out)
+    assert r.returncode == 0 and "address: 1" in r.stdout, r.stdout
+    t = page_text(out)
+    assert "Birkenweg" not in t and "40489" not in t and "Anschrift:" in t and "Parkstraße 4" in t
+    out2 = tmp_path / "m2_redacted.pdf"
+    r = run("apply", pdf, "--mode", "text", "--address", "Birkenweg 3, 40489 Düsseldorf", "-o", out2)
+    assert r.returncode == 0 and "Birkenweg" not in page_text(out2), r.stdout + r.stderr

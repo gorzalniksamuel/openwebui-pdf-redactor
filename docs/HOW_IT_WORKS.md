@@ -15,7 +15,7 @@ targets: --terms "Exact Text" ... | --label "Auftragsnummer" ... | --builtin EMA
 | `--label "Auftragsnummer"` | the value after every such label on the same line: a code/number with its digit groups, or a name of up to 3 capitalised words (titles skipped). Every value found is also searched literally everywhere else (text and images) |
 | `--builtin` | `EMAIL PHONE IBAN DATE BIRTHDATE URL POSTCODE_DE CREDIT_CARD IP_ADDRESS TAX_ID_DE HEALTH_INSURANCE_DE ICD10 NUMBER` (`BIRTHDATE` = a date after geb./Geburtsdatum/born/DOB/*; `TAX_ID_DE` = tax id, Steuernummer, DE VAT id; `HEALTH_INSURANCE_DE` = Krankenversichertennummer) |
 | `--regex` | a Python regular expression |
-| `--address` | the postal address block printed right below each `--terms` name (street + number, postcode + city, P.O. box; up to 3 lines) |
+| `--address [TEXT ...]` | the postal address of each `--terms` name: the block printed right below the name (street + number, postcode + city, P.O. box) or a labelled field ("Anschrift:", "Adresse:", "Address:") within the next lines of a data block; optional texts are redacted as given |
 | `--barcodes` | every barcode/QR code (only on explicit request) |
 | `--more` | follow-up stage: all targets of the previous apply on this file plus the given ones (remembered in `<file>.targets.json`, which holds the targets in plain text and is deleted with the file by the retention sweep) |
 
