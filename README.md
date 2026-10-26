@@ -81,7 +81,8 @@ Details: [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md). Test campaign and resul
 
 - `redact extract` output (page text) is a tool result and stays in the Open WebUI chat history until the chat is
   deleted. Delete the chat after a sensitive document.
-- Uploads and outputs in the terminal are deleted after the retention time (default 60 min, `--retention`).
+- Uploads, outputs and their side files (redaction areas, verification marker, remembered targets for follow-ups)
+  in the terminal are deleted after the retention time (default 60 min, `--retention`).
 - The terminal connection is shared by everyone allowed to use it: restrict it to a group in Open WebUI.
 
 ## License

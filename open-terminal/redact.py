@@ -48,6 +48,7 @@ TEXT_BAND_INSET = 0.25  # fraction trimmed on both sides PERPENDICULAR to the li
 IMAGE_HEAVY = 0.5  # pages whose images cover >= this share of the page: text inside images is not checked
 SIDECAR_EXT = ".redact.json"  # next to the output: redaction rects (coordinates only, no text) for verify
 VERIFIED_EXT = ".verified"  # written by a passing verify: sha256 of the PDF; the Open WebUI delivery tool requires it
+TARGETS_EXT = ".targets.json"  # next to the INPUT: the targets of the last apply (for --more); swept like the PDFs
 PAD_X, PAD_Y = 1.0, 0.5
 GS_TIMEOUT = 300
 OCR_LANGS = "deu+eng"
@@ -1311,7 +1312,26 @@ def default_out(src: str) -> str:
     return str(p.with_name(p.stem + "_redacted.pdf"))
 
 
+def load_targets(src: str) -> dict:
+    try:
+        with open(src + TARGETS_EXT) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
 def cmd_apply(a) -> int:
+    if a.more:
+        # add to the targets of the previous apply on this file (a follow-up stage needs only the new targets)
+        prev = load_targets(a.file)
+        if not prev:
+            raise RedactError(f"--more: no earlier apply on {a.file}; give all targets")
+        for key in ("terms", "regex", "builtin", "label"):
+            setattr(a, key, list(dict.fromkeys(prev.get(key, []) + (getattr(a, key) or []))))
+        a.barcodes = a.barcodes or prev.get("barcodes", False)
+        a.address = a.address or prev.get("address", False)
+        a.mode = a.mode or prev.get("mode")
+    a.mode = a.mode or "flatten"
     matchers = build_matchers(a.terms, a.regex, a.builtin, a.label)
     out = a.output or default_out(a.file)
     if os.path.abspath(out) == os.path.abspath(a.file):
@@ -1323,6 +1343,12 @@ def cmd_apply(a) -> int:
                      labels=a.label, quick_images=True)
     write_verified_marker(out, ver["passed"])
     res["verify"] = ver
+    try:  # best effort (read-only input folder): only --more needs it
+        with open(a.file + TARGETS_EXT, "w") as f:
+            json.dump({"terms": a.terms or [], "regex": a.regex or [], "builtin": a.builtin or [],
+                       "label": a.label or [], "barcodes": a.barcodes, "address": a.address, "mode": a.mode}, f)
+    except OSError:
+        pass
     if a.json:
         print(json.dumps(res, ensure_ascii=False))
         return 0 if ver["passed"] else 1
@@ -1358,6 +1384,10 @@ def cmd_apply(a) -> int:
             print(f"CHECK: '{h['word']}' (part of '{h['from_term']}') still appears {h['count']}x alone on page "
                   f"{h['page']}, NOT redacted: {ctx}  -> only if that is the same person, re-run apply on the "
                   f"ORIGINAL file with --terms \"{h['word']}\" added.")
+    all_t = (len(a.terms or []) + len(a.label or []) + len(split_builtins(a.builtin)) + len(a.regex or []))
+    print(f"Targets now ({all_t}, remembered for --more): {len(a.terms or [])} term(s), labels {a.label or '-'}, "
+          f"builtins {split_builtins(a.builtin) or '-'}" + (", address" if a.address else "")
+          + (", barcodes" if a.barcodes else ""))
     print(f"Output: {res['output']}")
     failed = [c for c in ver["checks"] if not c["passed"]]
     for c in failed:
@@ -1714,6 +1744,7 @@ def write_verified_marker(pdf: str, passed: bool):
 
 
 def cmd_verify(a) -> int:
+    a.mode = a.mode or "flatten"
     for b in split_builtins(a.builtin):
         if b not in BUILTINS:
             raise RedactError(f"unknown builtin {b!r}")
@@ -1764,7 +1795,8 @@ def sweep_old_files():
     home = Path.home()
     for f in home.iterdir():
         name = f.name.lower()
-        if f.is_file() and (name.endswith(".pdf") or name.endswith(SIDECAR_EXT) or name.endswith(VERIFIED_EXT)):
+        if f.is_file() and (name.endswith(".pdf") or name.endswith(SIDECAR_EXT) or name.endswith(VERIFIED_EXT)
+                            or name.endswith(TARGETS_EXT)):
             try:
                 if f.stat().st_mtime < cutoff:
                     f.unlink()
@@ -1791,12 +1823,14 @@ def main(argv=None) -> int:
         p.add_argument("--regex", action="extend", nargs="+", default=[], help="Python regex (repeatable)")
         p.add_argument("--builtin", "--builtins", action="extend", nargs="+", default=[],
                        help=f"one of {', '.join(BUILTINS)} (repeatable)")
-        p.add_argument("--mode", choices=("flatten", "text"), default="flatten")
+        p.add_argument("--mode", choices=("flatten", "text"), default=None, help="default flatten")
         p.add_argument("--json", action="store_true")
 
     p = sub.add_parser("apply", help="redact, flatten/rewrite, scrub")
     p.add_argument("file")
     p.add_argument("-o", "--output")
+    p.add_argument("--more", action="store_true",
+                   help="follow-up stage: keep all targets of the previous apply on this file and add the given ones")
     p.add_argument("--address", action="store_true",
                    help="also redact the postal address block right below each name of --terms (street, postcode, city)")
     p.add_argument("--barcodes", action="store_true",

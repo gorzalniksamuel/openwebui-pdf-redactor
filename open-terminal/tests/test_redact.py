@@ -683,3 +683,14 @@ def test_address_option_takes_the_block_below_the_name(tmp_path):
         assert gone not in t, gone
     for kept in ("Hafenstraße 9, 20457 Hamburg", "Köln, 12.03.2026", "Ringstraße 4", "Herrn"):
         assert kept in t, kept
+
+
+def test_more_adds_to_previous_targets(tmp_path):
+    pdf = make_letter(tmp_path / "l.pdf")
+    run("apply", pdf, "--terms", "Max Weber", "--mode", "text", check=True)
+    assert (tmp_path / "l.pdf.targets.json").exists()
+    r = run("apply", pdf, "--more", "--builtin", "IBAN", check=True)
+    assert "Max Weber: 1" in r.stdout and "builtin:IBAN: 1" in r.stdout and "VERIFY PASSED" in r.stdout, r.stdout
+    t = page_text(tmp_path / "l_redacted.pdf")
+    assert "Max Weber" not in t and "DE89" not in t and "Erika Mustermann" in t  # mode text kept from stage 1
+    assert run("apply", make_letter(tmp_path / "n.pdf"), "--more", "--terms", "X").returncode == 2  # no earlier stage

@@ -17,6 +17,7 @@ targets: --terms "Exact Text" ... | --label "Auftragsnummer" ... | --builtin EMA
 | `--regex` | a Python regular expression |
 | `--address` | the postal address block printed right below each `--terms` name (street + number, postcode + city, P.O. box; up to 3 lines) |
 | `--barcodes` | every barcode/QR code (only on explicit request) |
+| `--more` | follow-up stage: all targets of the previous apply on this file plus the given ones (remembered in `<file>.targets.json`, which holds the targets in plain text and is deleted with the file by the retention sweep) |
 
 ### extract
 Page text (compact: lines repeated from earlier pages shown once, output capped at ~9,000 characters with a

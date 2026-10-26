@@ -48,9 +48,11 @@ Workflow:
 4. Reply in one or two sentences: counts per category and pages, "verified", "download card above".
    Mention pages that were read by OCR (apply prints a NOTE) so the user looks them over.
 
-More redactions later in the same chat ("also the order numbers", "and the IBAN"): ALWAYS run apply AGAIN on the
-ORIGINAL attached file with ALL targets so far (earlier + new), even if you think it is already covered. Each
-stage gives a new verified download.
+More redactions later in the same chat ("also the order numbers", "and the last name"): ALWAYS run
+`redact apply "FILE.pdf" --more <only the new targets>` on the ORIGINAL attached file, even if you think it is
+already covered. `--more` keeps every target of the previous stage. Each stage gives a new verified download.
+Need the document text again (earlier tool output is shortened)? Run `redact extract` again - never ask the user
+for something that is in the document.
 If the user attaches a PDF that is already redacted, simply redact it like any other file.
 Do not stop after announcing a step; run the command in the same turn.
 
